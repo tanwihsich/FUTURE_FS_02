@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeadFlow CRM — Client Lead Management</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+      colors: {
+        brand: { 50:'#ECFDF5',100:'#D1FAE5',200:'#A7F3D0',300:'#6EE7B7',400:'#34D399',500:'#10B981',600:'#059669',700:'#047857',800:'#065F46',900:'#064E3B' },
+        panel: '#0F172A',
+        surface: '#F1F5F9',
+      }
+    }
+  }
+}
+</script>
+<style>
+  :root { --sidebar-w: 260px; }
+  * { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .login-bg { background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%); position: relative; overflow: hidden; }
+  .login-bg::before { content: ''; position: absolute; inset: -50%; background: radial-gradient(circle at 30% 40%, rgba(16,185,129,0.15) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(6,182,212,0.1) 0%, transparent 50%); animation: bgShift 12s ease-in-out infinite alternate; }
+  @keyframes bgShift { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-5%, 3%) scale(1.05); } }
+  .nav-item { transition: all 0.2s ease; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); border-left-color: rgba(16,185,129,0.4); }
+  .nav-item.active { background: rgba(16,185,129,0.1); border-left-color: #10B981; color: #10B981; }
+  .stat-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1); }
+  .table-row { transition: background 0.15s ease; }
+  .table-row:hover { background: #F8FAFC; }
+  .modal-overlay { transition: opacity 0.2s ease; }
+  .modal-content { transition: transform 0.25s ease, opacity 0.25s ease; }
+  .modal-overlay.hidden { opacity: 0; pointer-events: none; }
+  .modal-overlay.hidden .modal-content { transform: scale(0.95) translateY(10px); opacity: 0; }
+  .toast-enter { animation: toastIn 0.3s ease forwards; }
+  .toast-exit { animation: toastOut 0.3s ease forwards; }
+  @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+  .badge { padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-block; }
+  .badge-new { background: #DBEAFE; color: #1E40AF; }
+  .badge-contacted { background: #FEF3C7; color: #92400E; }
+  .badge-qualified { background: #EDE9FE; color: #5B21B6; }
+  .badge-converted { background: #D1FAE5; color: #065F46; }
+  .badge-lost { background: #FEE2E2; color: #991B1B; }
+  .btn-primary { transition: all 0.2s ease; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
+  .btn-primary:active { transform: translateY(0); }
+  .page-enter { animation: pageIn 0.3s ease forwards; }
+  @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 1023px) {
+    #sidebar { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 50; }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+    .sidebar-overlay.active { display: block; }
+  }
+  select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 2.5rem; }
+  .pulse-dot { width: 8px; height: 8px; border-radius: 50%; position: relative; }
+  .pulse-dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0% { opacity: 0.6; transform: scale(0.8); } 100% { opacity: 0; transform: scale(1.6); } }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }
+  .skeleton { background: linear-gradient(90deg, #E2E8F0 25%, #F1F5F9 50%, #E2E8F0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body class="bg-surface text-slate-800 antialiased">
+
+<!-- Login Screen -->
+<div id="loginScreen" class="login-bg min-h-screen flex items-center justify-center p-4">
+  <div class="relative z-10 w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center"><i class="fa-solid fa-bolt text-white text-lg"></i></div>
+        <span class="text-2xl font-800 text-white tracking-tight">LeadFlow</span>
+      </div>
+      <p class="text-slate-400 text-sm">Sign in to your CRM dashboard</p>
+    </div>
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8">
+      <form id="loginForm" class="space-y-5">
+        <div>
+          <label class="block text-sm font-600 text-slate-300 mb-2">Email Address</label>
+          <div class="relative">
+            <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+            <input type="email" id="loginEmail" placeholder="admin@leadflow.com" required class="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 text-sm focus:border-brand-500 focus:ring-0 transition">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-600 text-slate-300 mb-2">Password</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+            <input type="password" id="loginPassword" placeholder="Enter your password" required class="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 text-sm focus:border-brand-500 focus:ring-0 transition">
+          </div>
+        </div>
+        <div id="loginError" class="hidden text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2"></div>
+        <button type="submit" class="btn-primary w-full bg-brand-500 hover:bg-brand-600 text-white font-600 py-3 rounded-xl transition">Sign In</button>
+      </form>
+      <p class="text-slate-500 text-xs mt-5 text-center">Demo: admin@leadflow.com / admin123</p>
+    </div>
+  </div>
+</div>
+
+<!-- App Shell -->
+<div id="appShell" class="hidden min-h-screen flex">
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+  <aside id="sidebar" class="w-[260px] bg-panel min-h-screen flex flex-col shrink-0">
+    <div class="px-6 py-5 border-b border-white/5">
+      <div class="flex items-center gap-3"><div class="w-9 h-9 bg-brand-500 rounded-lg flex items-center justify-center"><i class="fa-solid fa-bolt text-white"></i></div><span class="text-xl font-800 text-white tracking-tight">LeadFlow</span></div>
+    </div>
+    <nav class="flex-1 py-4 px-3 space-y-1" id="sidebarNav">
+      <a href="#dashboard" data-page="dashboard" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 text-sm font-500"><i class="fa-solid fa-grid-2 w-5 text-center"></i> Dashboard</a>
+      <a href="#leads" data-page="leads" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 text-sm font-500"><i class="fa-solid fa-users w-5 text-center"></i> Leads</a>
+      <a href="#followups" data-page="followups" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 text-sm font-500"><i class="fa-solid fa-calendar-check w-5 text-center"></i> Follow-ups</a>
+      <a href="#analytics" data-page="analytics" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 text-sm font-500"><i class="fa-solid fa-chart-pie w-5 text-center"></i> Analytics</a>
+    </nav>
+    <div class="px-4 py-4 border-t border-white/5">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-brand-500/20 rounded-full flex items-center justify-center text-brand-400 font-700 text-sm" id="userAvatar">T</div>
+        <div class="flex-1 min-w-0"><p class="text-sm font-600 text-white truncate" id="userName">TANWIN J</p><p class="text-xs text-slate-500 truncate" id="userEmail">admin@leadflow.com</p></div>
+        <button onclick="handleLogout()" class="text-slate-500 hover:text-red-400 transition" title="Sign Out"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+    </div>
+  </aside>
+  <div class="flex-1 flex flex-col min-w-0">
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4 shrink-0">
+      <button onclick="toggleSidebar()" class="lg:hidden text-slate-500 hover:text-slate-700"><i class="fa-solid fa-bars text-lg"></i></button>
+      <div class="flex-1"><h2 class="text-lg font-700 text-slate-800" id="pageTitle">Dashboard</h2></div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-400" id="currentDate"></span>
+        <button onclick="showAddLeadModal()" class="btn-primary bg-brand-500 hover:bg-brand-600 text-white text-sm font-600 px-4 py-2 rounded-lg flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> New Lead</button>
+      </div>
+    </header>
+    <main id="content" class="flex-1 overflow-y-auto p-6"></main>
+  </div>
+</div>
+
+<!-- Modal Container -->
+<div id="modalOverlay" class="modal-overlay hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" id="modalContent"></div>
+</div>
+
+<!-- Confirm Dialog -->
+<div id="confirmOverlay" class="modal-overlay hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+    <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-triangle-exclamation text-red-500 text-xl"></i></div>
+    <h3 class="text-lg font-700 text-slate-800 mb-2" id="confirmTitle">Confirm Delete</h3>
+    <p class="text-sm text-slate-500 mb-6" id="confirmMessage">Are you sure? This action cannot be undone.</p>
+    <div class="flex gap-3 justify-center">
+      <button onclick="closeConfirm()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-600 text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+      <button id="confirmBtn" class="px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-600 transition">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="fixed top-4 right-4 z-[70] space-y-2 w-80"></div>
+
+<script>
+const STATUS_OPTIONS = ['New', 'Contacted', 'Qualified', 'Converted', 'Lost'];
+const SOURCE_OPTIONS = ['Website', 'Referral', 'Social Media', 'Advertisement', 'Other'];
+const STATUS_COLORS = { New: { bg: '#DBEAFE', text: '#1E40AF', dot: '#3B82F6' }, Contacted: { bg: '#FEF3C7', text: '#92400E', dot: '#F59E0B' }, Qualified: { bg: '#EDE9FE', text: '#5B21B6', dot: '#8B5CF6' }, Converted: { bg: '#D1FAE5', text: '#065F46', dot: '#10B981' }, Lost: { bg: '#FEE2E2', text: '#991B1B', dot: '#EF4444' } };
+const CHART_COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4', '#F97316'];
+
+const SEED_USER = { id: 'usr_001', name: 'TANWIN J', email: 'admin@leadflow.com', password: 'admin123', role: 'admin', createdAt: '2024-06-01T08:00:00Z' };
+
+const SEED_LEADS = [
+  { id:'l001', name:'Sarah Mitchell', email:'sarah@techvault.io', phone:'+91 98765 43210', company:'TechVault Solutions', source:'Website', status:'New', notes:'Interested in our premium package. Reached out via contact form.', createdAt:'2025-01-10T09:30:00Z', updatedAt:'2025-01-10T09:30:00Z' },
+  { id:'l002', name:'James Rodriguez', email:'james.r@greenleaf.co', phone:'+91 87654 32109', company:'GreenLeaf Co', source:'Referral', status:'Contacted', notes:'Referred by Mark Thompson. Needs web development services.', createdAt:'2025-01-08T14:15:00Z', updatedAt:'2025-01-09T10:20:00Z' },
+  { id:'l003', name:'Emily Chen', email:'emily.chen@datapulse.com', phone:'+91 76543 21098', company:'DataPulse Analytics', source:'Social Media', status:'Qualified', notes:'Very interested in data analytics integration. Budget approved.', createdAt:'2025-01-05T11:00:00Z', updatedAt:'2025-01-07T16:45:00Z' },
+  { id:'l004', name:'Michael Brooks', email:'mbrooks@horizonvc.com', phone:'+91 65432 10987', company:'Horizon Ventures', source:'Advertisement', status:'Converted', notes:'Signed contract for enterprise plan. Onboarding scheduled.', createdAt:'2024-12-20T08:30:00Z', updatedAt:'2025-01-03T09:00:00Z' },
+  { id:'l005', name:'Lisa Thompson', email:'lisa@creativeforge.io', phone:'+91 94321 09876', company:'Creative Forge Studio', source:'Website', status:'Contacted', notes:'Requested a demo for the design team. Follow up next week.', createdAt:'2024-12-18T13:45:00Z', updatedAt:'2024-12-22T11:30:00Z' },
+  { id:'l006', name:'David Kim', email:'david.kim@nexgen.tech', phone:'+91 83210 98765', company:'Nexgen Systems', source:'Referral', status:'New', notes:'Came through partner referral program. Needs cloud migration.', createdAt:'2025-01-11T10:00:00Z', updatedAt:'2025-01-11T10:00:00Z' },
+  { id:'l007', name:'Rachel Foster', email:'rachel@brightpath.co', phone:'+91 72109 87654', company:'BrightPath Consulting', source:'Social Media', status:'Lost', notes:'Budget constraints. May revisit in Q3.', createdAt:'2024-11-15T09:20:00Z', updatedAt:'2024-12-01T14:00:00Z' },
+  { id:'l008', name:'Alex Turner', email:'aturner@quantumlabs.io', phone:'+91 61098 76543', company:'Quantum Labs', source:'Website', status:'Qualified', notes:'Technical assessment completed. Ready for proposal.', createdAt:'2024-12-10T15:30:00Z', updatedAt:'2025-01-06T10:15:00Z' },
+  { id:'l009', name:'Maria Santos', email:'maria@urbanbloom.com', phone:'+91 90987 65432', company:'Urban Bloom', source:'Advertisement', status:'Contacted', notes:'Interested in e-commerce solution. Sent initial proposal.', createdAt:'2024-12-05T12:00:00Z', updatedAt:'2024-12-15T09:45:00Z' },
+  { id:'l010', name:'Chris Walker', email:'cwalker@ironclad.sec', phone:'+91 89876 54321', company:'Ironclad Security', source:'Referral', status:'Converted', notes:'Converted to client. Annual contract signed. Dedicated account manager assigned.', createdAt:'2024-10-20T08:00:00Z', updatedAt:'2024-11-25T16:30:00Z' },
+  { id:'l011', name:'Nicole Harper', email:'nicole@skyline.digital', phone:'+91 78765 43210', company:'Skyline Digital', source:'Website', status:'New', notes:'Submitted inquiry about SEO services through website.', createdAt:'2025-01-12T07:45:00Z', updatedAt:'2025-01-12T07:45:00Z' },
+  { id:'l012', name:'Ryan Patel', email:'ryan@cpeaksaas.io', phone:'+91 67654 32109', company:'CloudPeak SaaS', source:'Social Media', status:'Contacted', notes:'Connected on LinkedIn. Scheduled discovery call.', createdAt:'2025-01-02T16:20:00Z', updatedAt:'2025-01-05T11:00:00Z' },
+  { id:'l013', name:'Jennifer Lee', email:'jlee@meridian.health', phone:'+91 96543 21098', company:'Meridian Health', source:'Website', status:'Qualified', notes:'Needs HIPAA-compliant solution. Sent compliance documentation.', createdAt:'2024-12-22T10:10:00Z', updatedAt:'2025-01-08T13:30:00Z' },
+  { id:'l014', name:'Tom Anderson', email:'tanderson@apexmfg.com', phone:'+91 85432 10987', company:'Apex Manufacturing', source:'Referral', status:'New', notes:'Industry contact from trade show. Interested in inventory management.', createdAt:'2025-01-09T14:30:00Z', updatedAt:'2025-01-09T14:30:00Z' },
+  { id:'l015', name:'Sophie Williams', email:'sophie@pixelcraft.design', phone:'+91 74321 09876', company:'PixelCraft Design', source:'Advertisement', status:'Lost', notes:'Chose a competitor. Price was the deciding factor.', createdAt:'2024-11-01T09:00:00Z', updatedAt:'2024-11-20T15:00:00Z' },
+  { id:'l016', name:'Daniel Martinez', email:'dmartinez@solaris.energy', phone:'+91 63210 98765', company:'Solaris Energy', source:'Website', status:'Contacted', notes:'Wants custom reporting dashboard. Sent case studies.', createdAt:'2025-01-04T11:45:00Z', updatedAt:'2025-01-07T09:30:00Z' },
+  { id:'l017', name:'Olivia Brown', email:'olivia@freshstart.vc', phone:'+91 92109 87654', company:'FreshStart Ventures', source:'Social Media', status:'New', notes:'Follows us on Twitter. DM about partnership opportunities.', createdAt:'2025-01-11T17:00:00Z', updatedAt:'2025-01-11T17:00:00Z' },
+  { id:'l018', name:'Kevin Wilson', email:'kwilson@shieldtech.co', phone:'+91 81098 76543', company:'ShieldTech Solutions', source:'Referral', status:'Converted', notes:'Enterprise client. Full platform deployment underway.', createdAt:'2024-09-15T08:30:00Z', updatedAt:'2024-11-10T12:00:00Z' },
+  { id:'l019', name:'Amanda Davis', email:'adavis@coastalrealty.com', phone:'+91 70987 65432', company:'Coastal Realty Group', source:'Website', status:'Contacted', notes:'Looking for CRM solution for real estate team. Demo scheduled.', createdAt:'2025-01-06T13:20:00Z', updatedAt:'2025-01-09T10:00:00Z' },
+  { id:'l020', name:'Brandon Taylor', email:'btaylor@velocity.log', phone:'+91 90123 45678', company:'Velocity Logistics', source:'Advertisement', status:'Qualified', notes:'Attended our webinar. Very engaged during Q&A. Needs fleet management.', createdAt:'2024-12-28T15:00:00Z', updatedAt:'2025-01-10T11:30:00Z' },
+];
+
+const SEED_FOLLOWUPS = [
+  { id:'f001', leadId:'l002', note:'Initial discovery call — discuss project scope and timeline.', followupDate:'2025-01-15T10:00:00Z', completed:false, createdAt:'2025-01-09T10:20:00Z' },
+  { id:'f002', leadId:'l003', note:'Send technical proposal and pricing breakdown.', followupDate:'2025-01-14T09:00:00Z', completed:false, createdAt:'2025-01-07T16:45:00Z' },
+  { id:'f003', leadId:'l005', note:'Demo presentation for the design team.', followupDate:'2025-01-16T14:00:00Z', completed:false, createdAt:'2024-12-22T11:30:00Z' },
+  { id:'f004', leadId:'l008', note:'Follow up on proposal feedback.', followupDate:'2025-01-13T11:00:00Z', completed:false, createdAt:'2025-01-06T10:15:00Z' },
+  { id:'f005', leadId:'l009', note:'Review initial proposal and address questions.', followupDate:'2025-01-20T10:00:00Z', completed:false, createdAt:'2024-12-15T09:45:00Z' },
+  { id:'f006', leadId:'l012', note:'Discovery call — learn about SaaS requirements.', followupDate:'2025-01-18T15:00:00Z', completed:false, createdAt:'2025-01-05T11:00:00Z' },
+  { id:'f007', leadId:'l004', note:'Contract signed. Onboarding kickoff meeting.', followupDate:'2025-01-05T09:00:00Z', completed:true, createdAt:'2025-01-03T09:00:00Z' },
+  { id:'f008', leadId:'l010', note:'Quarterly review and account health check.', followupDate:'2024-12-15T10:00:00Z', completed:true, createdAt:'2024-11-25T16:30:00Z' },
+  { id:'f009', leadId:'l016', note:'Follow up on case studies review. Schedule technical deep-dive.', followupDate:'2025-01-22T13:00:00Z', completed:false, createdAt:'2025-01-07T09:30:00Z' },
+  { id:'f010', leadId:'l019', note:'Prepare CRM demo tailored for real estate use case.', followupDate:'2025-01-17T10:00:00Z', completed:false, createdAt:'2025-01-09T10:00:00Z' },
+  { id:'f011', leadId:'l013', note:'Review compliance documentation and schedule compliance audit.', followupDate:'2025-01-21T09:00:00Z', completed:false, createdAt:'2025-01-08T13:30:00Z' },
+  { id:'f012', leadId:'l020', note:'Send fleet management case study and schedule product walkthrough.', followupDate:'2025-01-19T11:00:00Z', completed:false, createdAt:'2025-01-10T11:30:00Z' },
+];
+
+// ============================================
+// Data Store (simulates MongoDB)
+// ============================================
+const Store = {
+  _get(key) { try { return JSON.parse(localStorage.getItem('lf_' + key)) || null; } catch { return null; } },
+  _set(key, val) { localStorage.setItem('lf_' + key, JSON.stringify(val)); },
+  init() { if (!this._get('initialized')) { this._set('users', [SEED_USER]); this._set('leads', SEED_LEADS); this._set('followups', SEED_FOLLOWUPS); this._set('initialized', true); } },
+  getUsers() { return this._get('users') || []; },
+  findUser(email) { return this.getUsers().find(u => u.email === email); },
+  getLeads() { return this._get('leads') || []; },
+  getLead(id) { return this.getLeads().find(l => l.id === id); },
+  addLead(lead) { const leads = this.getLeads(); lead.id = 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); lead.createdAt = new Date().toISOString(); lead.updatedAt = lead.createdAt; leads.unshift(lead); this._set('leads', leads); return lead; },
+  updateLead(id, data) { const leads = this.getLeads(); const idx = leads.findIndex(l => l.id === id); if (idx === -1) return null; leads[idx] = { ...leads[idx], ...data, updatedAt: new Date().toISOString() }; this._set('leads', leads); return leads[idx]; },
+  deleteLead(id) { let leads = this.getLeads(); leads = leads.filter(l => l.id !== id); this._set('leads', leads); let followups = this.getFollowups(); followups = followups.filter(f => f.leadId !== id); this._set('followups', followups); },
+  getFollowups() { return this._get('followups') || []; },
+  getFollowupsByLead(leadId) { return this.getFollowups().filter(f => f.leadId === leadId); },
+  addFollowup(followup) { const followups = this.getFollowups(); followup.id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); followup.completed = false; followup.createdAt = new Date().toISOString(); followups.unshift(followup); this._set('followups', followups); return followup; },
+  toggleFollowup(id) { const followups = this.getFollowups(); const idx = followups.findIndex(f => f.id === id); if (idx === -1) return null; followups[idx].completed = !followups[idx].completed; this._set('followups', followups); return followups[idx]; },
+  deleteFollowup(id) { let followups = this.getFollowups(); followups = followups.filter(f => f.id !== id); this._set('followups', followups); }
+};
+
+// ============================================
+// Auth Service (simulates JWT)
+// ============================================
+const Auth = {
+  getToken() { return localStorage.getItem('lf_token'); },
+  setToken(token) { localStorage.setItem('lf_token', token); },
+  clearToken() { localStorage.removeItem('lf_token'); },
+  getUser() { const token = this.getToken(); if (!token) return null; try { return JSON.parse(atob(token)); } catch { return null; } },
+  login(email, password) { const user = Store.findUser(email); if (!user) return { ok: false, error: 'No account found with this email.' }; if (user.password !== password) return { ok: false, error: 'Incorrect password. Please try again.' }; const token = btoa(JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role })); this.setToken(token); return { ok: true, user }; },
+  logout() { this.clearToken(); },
+  isLoggedIn() { return !!this.getUser(); }
+};
+
+// ============================================
+// Utility Functions (en-IN locale)
+// ============================================
+function formatDate(isoStr) { if (!isoStr) return '—'; const d = new Date(isoStr); return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function formatDateTime(isoStr) { if (!isoStr) return '—'; const d = new Date(isoStr); return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+function relativeTime(isoStr) { if (!isoStr) return ''; const now = Date.now(); const then = new Date(isoStr).getTime(); const diff = now - then; const mins = Math.floor(diff / 60000); if (mins < 1) return 'Just now'; if (mins < 60) return mins + 'm ago'; const hrs = Math.floor(mins / 60); if (hrs < 24) return hrs + 'h ago'; const days = Math.floor(hrs / 24); if (days < 7) return days + 'd ago'; if (days < 30) return Math.floor(days / 7) + 'w ago'; return Math.floor(days / 30) + 'mo ago'; }
+function escapeHtml(str) { if (!str) return ''; const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+function statusBadge(status) { const c = STATUS_COLORS[status] || STATUS_COLORS.New; return `<span class="badge" style="background:${c.bg};color:${c.text}"><span class="pulse-dot inline-block mr-1.5" style="background:${c.dot};color:${c.dot}"></span>${status}</span>`; }
+function sourceIcon(source) { const icons = { Website:'fa-globe', Referral:'fa-handshake', 'Social Media':'fa-hashtag', Advertisement:'fa-bullhorn', Other:'fa-ellipsis' }; return `<i class="fa-solid ${icons[source] || 'fa-circle'} text-slate-400 mr-1.5"></i>${source}`; }
+
+// ============================================
+// Toast Notifications
+// ============================================
+function showToast(message, type = 'success') { const container = document.getElementById('toastContainer'); const colors = { success: 'bg-brand-500', error: 'bg-red-500', warning: 'bg-amber-500', info: 'bg-blue-500' }; const icons = { success: 'fa-check-circle', error: 'fa-xmark-circle', warning: 'fa-triangle-exclamation', info: 'fa-info-circle' }; const toast = document.createElement('div'); toast.className = `toast-enter flex items-center gap-3 ${colors[type]} text-white px-4 py-3 rounded-xl shadow-lg text-sm font-500`; toast.innerHTML = `<i class="fa-solid ${icons[type]}"></i><span class="flex-1">${escapeHtml(message)}</span><button onclick="this.parentElement.remove()" class="ml-2 opacity-70 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>`; container.appendChild(toast); setTimeout(() => { toast.classList.replace('toast-enter', 'toast-exit'); setTimeout(() => toast.remove(), 300); }, 3500); }
+
+// ============================================
+// Modal System
+// ============================================
+function showModal(html) { const overlay = document.getElementById('modalOverlay'); document.getElementById('modalContent').innerHTML = html; overlay.classList.remove('hidden'); requestAnimationFrame(() => overlay.style.opacity = '1'); }
+function closeModal() { const overlay = document.getElementById('modalOverlay'); overlay.style.opacity = '0'; setTimeout(() => { overlay.classList.add('hidden'); overlay.style.opacity = ''; }, 200); }
+let confirmCallback = null;
+function showConfirm(title, message, onConfirm) { document.getElementById('confirmTitle').textContent = title; document.getElementById('confirmMessage').textContent = message; confirmCallback = onConfirm; const overlay = document.getElementById('confirmOverlay'); overlay.classList.remove('hidden'); requestAnimationFrame(() => overlay.style.opacity = '1'); }
+function closeConfirm() { const overlay = document.getElementById('confirmOverlay'); overlay.style.opacity = '0'; setTimeout(() => { overlay.classList.add('hidden'); overlay.style.opacity = ''; }, 200); confirmCallback = null; }
+document.getElementById('confirmBtn').addEventListener('click', () => { if (confirmCallback) confirmCallback(); closeConfirm(); });
+
+// ============================================
+// Sidebar & Router
+// ============================================
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('active'); }
+
+let currentPage = 'dashboard'; let currentLeadId = null;
+function navigate(hash) { window.location.hash = hash; }
+function parseRoute() { const hash = window.location.hash.slice(1) || 'dashboard'; const parts = hash.split('/'); currentPage = parts[0]; currentLeadId = parts[1] || null; renderPage(); updateSidebarActive(); document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('active'); }
+function updateSidebarActive() { document.querySelectorAll('#sidebarNav .nav-item').forEach(item => { item.classList.toggle('active', item.dataset.page === currentPage); }); const titles = { dashboard: 'Dashboard', leads: 'Leads', followups: 'Follow-ups', analytics: 'Analytics' }; document.getElementById('pageTitle').textContent = titles[currentPage] || 'LeadFlow'; }
+window.addEventListener('hashchange', parseRoute);
+
+// ============================================
+// Page Renderers
+// ============================================
+function renderPage() { const content = document.getElementById('content'); content.innerHTML = '<div class="skeleton h-8 w-48 mb-6"></div><div class="grid grid-cols-4 gap-4"><div class="skeleton h-28 rounded-xl"></div><div class="skeleton h-28 rounded-xl"></div><div class="skeleton h-28 rounded-xl"></div><div class="skeleton h-28 rounded-xl"></div></div>'; setTimeout(() => { switch (currentPage) { case 'dashboard': renderDashboard(); break; case 'leads': renderLeads(); break; case 'lead': renderLeadDetail(); break; case 'followups': renderFollowups(); break; case 'analytics': renderAnalytics(); break; default: renderDashboard(); } }, 150); }
+
+function statCard(label, value, icon, iconBg, sub, subDesc) { return `<div class="stat-card bg-white rounded-2xl border border-slate-200 p-5 relative overflow-hidden"><div class="flex items-start justify-between"><div><p class="text-sm text-slate-500 font-500 mb-1">${label}</p><p class="text-3xl font-800 text-slate-800">${value}</p><p class="text-xs text-slate-400 mt-1"><span class="font-600">${sub}</span> ${subDesc}</p></div><div class="w-11 h-11 ${iconBg} rounded-xl flex items-center justify-center text-white shrink-0"><i class="fa-solid ${icon}"></i></div></div></div>`; }
+
+// ========== Dashboard ==========
+function renderDashboard() {
+  const leads = Store.getLeads(); const followups = Store.getFollowups();
+  const total = leads.length; const newLeads = leads.filter(l => l.status === 'New').length; const contacted = leads.filter(l => l.status === 'Contacted').length; const converted = leads.filter(l => l.status === 'Converted').length; const pendingFups = followups.filter(f => !f.completed).length;
+  const recentLeads = leads.slice(0, 5); const upcomingFups = followups.filter(f => !f.completed).sort((a, b) => new Date(a.followupDate) - new Date(b.followupDate)).slice(0, 5);
+  const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0.0';
+  document.getElementById('content').innerHTML = `<div class="page-enter"><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">${statCard('Total Leads', total, 'fa-users', 'bg-slate-800', '+12%', 'from last month')}${statCard('New Leads', newLeads, 'fa-sparkles', 'bg-blue-500', `${newLeads} pending`, 'need attention')}${statCard('Contacted', contacted, 'fa-phone', 'bg-amber-500', 'In progress', 'active outreach')}${statCard('Converted', converted, 'fa-trophy', 'bg-brand-500', convRate + '% rate', 'conversion')}${statCard('Pending Follow-ups', pendingFups, 'fa-clock', 'bg-violet-500', `${pendingFups} upcoming`, 'scheduled')}</div><div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8"><div class="xl:col-span-2 bg-white rounded-2xl border border-slate-200 overflow-hidden"><div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><h3 class="font-700 text-slate-800">Recent Leads</h3><a href="#leads" class="text-brand-600 text-sm font-600 hover:text-brand-700 transition">View All <i class="fa-solid fa-arrow-right text-xs ml-1"></i></a></div><div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-xs text-slate-400 font-600 uppercase tracking-wider"><th class="text-left px-6 py-3">Name</th><th class="text-left px-4 py-3">Company</th><th class="text-left px-4 py-3">Source</th><th class="text-left px-4 py-3">Status</th><th class="text-left px-4 py-3">Date</th></tr></thead><tbody>${recentLeads.map(l => `<tr class="table-row border-t border-slate-50 cursor-pointer" onclick="navigate('lead/${l.id}')"><td class="px-6 py-3"><div class="font-600 text-slate-800 text-sm">${escapeHtml(l.name)}</div><div class="text-xs text-slate-400">${escapeHtml(l.email)}</div></td><td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(l.company)}</td><td class="px-4 py-3 text-xs text-slate-500">${sourceIcon(l.source)}</td><td class="px-4 py-3">${statusBadge(l.status)}</td><td class="px-4 py-3 text-xs text-slate-400">${relativeTime(l.createdAt)}</td></tr>`).join('')}</tbody></table></div></div><div class="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><h3 class="font-700 text-slate-800">Upcoming Follow-ups</h3><a href="#followups" class="text-brand-600 text-sm font-600 hover:text-brand-700 transition">View All</a></div><div class="divide-y divide-slate-50">${upcomingFups.length === 0 ? '<div class="px-6 py-8 text-center text-sm text-slate-400">No upcoming follow-ups</div>' : upcomingFups.map(f => { const lead = Store.getLead(f.leadId); return `<div class="px-6 py-3.5 hover:bg-slate-50 transition cursor-pointer" onclick="navigate('lead/${f.leadId}')"><div class="flex items-center justify-between mb-1"><span class="font-600 text-sm text-slate-800">${lead ? escapeHtml(lead.name) : 'Unknown'}</span><span class="text-xs text-slate-400">${formatDate(f.followupDate)}</span></div><p class="text-xs text-slate-500 line-clamp-1">${escapeHtml(f.note)}</p></div>`; }).join('')}</div></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Leads by Status</h3><div class="h-64"><canvas id="dashStatusChart"></canvas></div></div><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Lead Sources</h3><div class="h-64"><canvas id="dashSourceChart"></canvas></div></div></div></div>`;
+  renderDashCharts(leads);
+}
+
+function renderDashCharts(leads) {
+  const statusCounts = {}; STATUS_OPTIONS.forEach(s => statusCounts[s] = 0); leads.forEach(l => { if (statusCounts[l.status] !== undefined) statusCounts[l.status]++; });
+  const ctx1 = document.getElementById('dashStatusChart'); if (ctx1) { new Chart(ctx1, { type: 'doughnut', data: { labels: STATUS_OPTIONS, datasets: [{ data: STATUS_OPTIONS.map(s => statusCounts[s]), backgroundColor: STATUS_OPTIONS.map(s => STATUS_COLORS[s].dot), borderWidth: 0, hoverOffset: 6 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 12, family: 'Plus Jakarta Sans' } } } } } }); }
+  const sourceCounts = {}; SOURCE_OPTIONS.forEach(s => sourceCounts[s] = 0); leads.forEach(l => { if (sourceCounts[l.source] !== undefined) sourceCounts[l.source]++; });
+  const ctx2 = document.getElementById('dashSourceChart'); if (ctx2) { new Chart(ctx2, { type: 'bar', data: { labels: SOURCE_OPTIONS, datasets: [{ data: SOURCE_OPTIONS.map(s => sourceCounts[s]), backgroundColor: CHART_COLORS.slice(0, SOURCE_OPTIONS.length), borderRadius: 8, borderSkipped: false, barThickness: 36 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { color: '#F1F5F9' } }, x: { ticks: { font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { display: false } } } } }); }
+}
+
+// ========== Leads Page ==========
+let leadFilters = { search: '', status: '', source: '', sort: 'newest' };
+function renderLeads() {
+  const leads = getFilteredLeads();
+  document.getElementById('content').innerHTML = `<div class="page-enter"><div class="bg-white rounded-2xl border border-slate-200 p-4 mb-6"><div class="flex flex-col lg:flex-row gap-3"><div class="relative flex-1"><i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i><input type="text" id="leadSearch" placeholder="Search by name, email, or company..." value="${escapeHtml(leadFilters.search)}" class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm transition" oninput="handleLeadSearch(this.value)"></div><div class="flex gap-3 flex-wrap"><select id="leadStatusFilter" class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition" onchange="handleLeadFilter('status', this.value)"><option value="">All Statuses</option>${STATUS_OPTIONS.map(s => `<option value="${s}" ${leadFilters.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select><select id="leadSourceFilter" class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition" onchange="handleLeadFilter('source', this.value)"><option value="">All Sources</option>${SOURCE_OPTIONS.map(s => `<option value="${s}" ${leadFilters.source === s ? 'selected' : ''}>${s}</option>`).join('')}</select><select id="leadSortFilter" class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition" onchange="handleLeadFilter('sort', this.value)"><option value="newest" ${leadFilters.sort === 'newest' ? 'selected' : ''}>Newest First</option><option value="oldest" ${leadFilters.sort === 'oldest' ? 'selected' : ''}>Oldest First</option><option value="name" ${leadFilters.sort === 'name' ? 'selected' : ''}>Name A-Z</option><option value="updated" ${leadFilters.sort === 'updated' ? 'selected' : ''}>Recently Updated</option></select></div></div></div><div class="flex items-center justify-between mb-4"><p class="text-sm text-slate-500"><span class="font-700 text-slate-800">${leads.length}</span> leads found</p><button onclick="showAddLeadModal()" class="btn-primary bg-brand-500 hover:bg-brand-600 text-white text-sm font-600 px-4 py-2 rounded-lg flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> Add Lead</button></div><div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">${leads.length === 0 ? `<div class="py-16 text-center"><div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-users-slash text-slate-300 text-xl"></i></div><p class="text-slate-500 font-500">No leads found</p><p class="text-slate-400 text-sm mt-1">Try adjusting your search or filters</p></div>` : `<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-xs text-slate-400 font-600 uppercase tracking-wider bg-slate-50"><th class="text-left px-6 py-3">Name</th><th class="text-left px-4 py-3 hidden md:table-cell">Company</th><th class="text-left px-4 py-3 hidden lg:table-cell">Source</th><th class="text-left px-4 py-3">Status</th><th class="text-left px-4 py-3 hidden sm:table-cell">Created</th><th class="text-right px-6 py-3">Actions</th></tr></thead><tbody>${leads.map(l => `<tr class="table-row border-t border-slate-50"><td class="px-6 py-3.5 cursor-pointer" onclick="navigate('lead/${l.id}')"><div class="font-600 text-slate-800 text-sm">${escapeHtml(l.name)}</div><div class="text-xs text-slate-400">${escapeHtml(l.email)}</div></td><td class="px-4 py-3.5 text-sm text-slate-600 hidden md:table-cell">${escapeHtml(l.company)}</td><td class="px-4 py-3.5 text-xs text-slate-500 hidden lg:table-cell">${sourceIcon(l.source)}</td><td class="px-4 py-3.5">${statusBadge(l.status)}</td><td class="px-4 py-3.5 text-xs text-slate-400 hidden sm:table-cell">${formatDate(l.createdAt)}</td><td class="px-6 py-3.5 text-right"><div class="flex items-center justify-end gap-1"><button onclick="navigate('lead/${l.id}')" class="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition" title="View"><i class="fa-solid fa-eye text-xs"></i></button><button onclick="showEditLeadModal('${l.id}')" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-xs"></i></button><button onclick="confirmDeleteLead('${l.id}')" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button></div></td></tr>`).join('')}</tbody></table></div>`}</div></div>`;
+}
+function getFilteredLeads() { let leads = Store.getLeads(); const { search, status, source, sort } = leadFilters; if (search) { const q = search.toLowerCase(); leads = leads.filter(l => l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q) || l.company.toLowerCase().includes(q)); } if (status) leads = leads.filter(l => l.status === status); if (source) leads = leads.filter(l => l.source === source); switch (sort) { case 'newest': leads.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); break; case 'oldest': leads.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); break; case 'name': leads.sort((a, b) => a.name.localeCompare(b.name)); break; case 'updated': leads.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)); break; } return leads; }
+function handleLeadSearch(val) { leadFilters.search = val; renderLeads(); }
+function handleLeadFilter(key, val) { leadFilters[key] = val; renderLeads(); }
+
+// ========== Lead Detail Page ==========
+function renderLeadDetail() {
+  if (!currentLeadId) { navigate('leads'); return; }
+  const lead = Store.getLead(currentLeadId);
+  if (!lead) { document.getElementById('content').innerHTML = `<div class="text-center py-16"><p class="text-slate-500">Lead not found.</p><button onclick="navigate('leads')" class="text-brand-600 text-sm font-600 mt-2 inline-block">Back to Leads</button></div>`; return; }
+  const followups = Store.getFollowupsByLead(currentLeadId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  document.getElementById('content').innerHTML = `<div class="page-enter"><button onclick="navigate('leads')" class="flex items-center gap-2 text-sm text-slate-500 hover:text-brand-600 transition mb-6"><i class="fa-solid fa-arrow-left"></i> Back to Leads</button><div class="grid grid-cols-1 xl:grid-cols-3 gap-6"><div class="xl:col-span-2 space-y-6"><div class="bg-white rounded-2xl border border-slate-200 p-6"><div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6"><div class="flex items-center gap-4"><div class="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 font-800 text-xl">${lead.name.charAt(0)}</div><div><h2 class="text-xl font-800 text-slate-800">${escapeHtml(lead.name)}</h2><p class="text-sm text-slate-500">${escapeHtml(lead.company)}</p></div></div><div class="flex items-center gap-2"><button onclick="showEditLeadModal('${lead.id}')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-600 text-slate-600 hover:bg-slate-50 transition flex items-center gap-2"><i class="fa-solid fa-pen text-xs"></i> Edit</button><button onclick="confirmDeleteLead('${lead.id}')" class="px-4 py-2 border border-red-200 rounded-lg text-sm font-600 text-red-600 hover:bg-red-50 transition flex items-center gap-2"><i class="fa-solid fa-trash text-xs"></i> Delete</button></div></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><i class="fa-solid fa-envelope text-slate-400 w-5 text-center"></i><div><p class="text-xs text-slate-400">Email</p><p class="text-sm font-500 text-slate-700">${escapeHtml(lead.email)}</p></div></div><div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><i class="fa-solid fa-phone text-slate-400 w-5 text-center"></i><div><p class="text-xs text-slate-400">Phone</p><p class="text-sm font-500 text-slate-700">${escapeHtml(lead.phone)}</p></div></div><div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><i class="fa-solid fa-building text-slate-400 w-5 text-center"></i><div><p class="text-xs text-slate-400">Company</p><p class="text-sm font-500 text-slate-700">${escapeHtml(lead.company)}</p></div></div><div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><i class="fa-solid fa-route text-slate-400 w-5 text-center"></i><div><p class="text-xs text-slate-400">Source</p><p class="text-sm font-500 text-slate-700">${sourceIcon(lead.source)}</p></div></div><div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><i class="fa-solid fa-calendar text-slate-400 w-5 text-center"></i><div><p class="text-xs text-slate-400">Created</p><p class="text-sm font-500 text-slate-700">${formatDate(lead.createdAt)}</p></div></div><div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><i class="fa-solid fa-clock text-slate-400 w-5 text-center"></i><div><p class="text-xs text-slate-400">Last Updated</p><p class="text-sm font-500 text-slate-700">${formatDateTime(lead.updatedAt)}</p></div></div></div>${lead.notes ? `<div class="mt-4 p-4 bg-slate-50 rounded-xl"><p class="text-xs text-slate-400 mb-1 font-600">Notes</p><p class="text-sm text-slate-600 leading-relaxed">${escapeHtml(lead.notes)}</p></div>` : ''}</div><div class="bg-white rounded-2xl border border-slate-200 p-6"><div class="flex items-center justify-between mb-5"><h3 class="font-700 text-slate-800">Follow-up History</h3><button onclick="showAddFollowupModal('${lead.id}')" class="text-brand-600 text-sm font-600 hover:text-brand-700 transition flex items-center gap-1"><i class="fa-solid fa-plus text-xs"></i> Add Follow-up</button></div>${followups.length === 0 ? `<div class="text-center py-8 text-slate-400 text-sm"><i class="fa-solid fa-clock-rotate-left text-2xl mb-2 block text-slate-300"></i>No follow-ups yet</div>` : `<div class="space-y-3">${followups.map(f => `<div class="flex gap-4 p-3 rounded-xl hover:bg-slate-50 transition ${f.completed ? 'opacity-60' : ''}"><div class="shrink-0 mt-1"><button onclick="toggleFollowupStatus('${f.id}')" class="w-5 h-5 rounded-full border-2 ${f.completed ? 'bg-brand-500 border-brand-500' : 'border-slate-300 hover:border-brand-400'} flex items-center justify-center transition" title="${f.completed ? 'Mark incomplete' : 'Mark complete'}">${f.completed ? '<i class="fa-solid fa-check text-white text-[10px]"></i>' : ''}</button></div><div class="flex-1 min-w-0"><div class="flex items-center justify-between gap-2"><p class="text-sm font-500 text-slate-700 ${f.completed ? 'line-through' : ''}">${escapeHtml(f.note)}</p><button onclick="confirmDeleteFollowup('${f.id}')" class="text-slate-300 hover:text-red-500 transition shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button></div><div class="flex items-center gap-3 mt-1"><span class="text-xs text-slate-400"><i class="fa-solid fa-calendar text-[10px] mr-1"></i>${formatDate(f.followupDate)}</span><span class="text-xs text-slate-400"><i class="fa-solid fa-clock text-[10px] mr-1"></i>Added ${relativeTime(f.createdAt)}</span>${f.completed ? '<span class="badge text-[10px]" style="background:#D1FAE5;color:#065F46">Completed</span>' : ''}</div></div></div>`).join('')}</div>`}</div></div><div class="space-y-6"><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Lead Status</h3><div class="text-center mb-4"><div class="inline-block">${statusBadge(lead.status)}</div></div><div class="space-y-2">${STATUS_OPTIONS.map(s => `<button onclick="updateLeadStatus('${lead.id}', '${s}')" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-500 transition ${lead.status === s ? 'bg-brand-50 text-brand-700 border border-brand-200' : 'text-slate-600 hover:bg-slate-50 border border-transparent'}"><span class="pulse-dot inline-block mr-2" style="background:${STATUS_COLORS[s].dot};color:${STATUS_COLORS[s].dot}"></span>${s}${lead.status === s ? '<i class="fa-solid fa-check text-brand-500 text-xs float-right mt-1"></i>' : ''}</button>`).join('')}</div></div><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Quick Actions</h3><div class="space-y-2"><button onclick="showAddFollowupModal('${lead.id}')" class="w-full px-4 py-2.5 rounded-xl text-sm font-500 text-slate-600 hover:bg-slate-50 transition flex items-center gap-3"><i class="fa-solid fa-calendar-plus text-brand-500 w-5 text-center"></i> Schedule Follow-up</button><button onclick="showEditLeadModal('${lead.id}')" class="w-full px-4 py-2.5 rounded-xl text-sm font-500 text-slate-600 hover:bg-slate-50 transition flex items-center gap-3"><i class="fa-solid fa-pen-to-square text-blue-500 w-5 text-center"></i> Edit Information</button><a href="mailto:${escapeHtml(lead.email)}" class="w-full px-4 py-2.5 rounded-xl text-sm font-500 text-slate-600 hover:bg-slate-50 transition flex items-center gap-3"><i class="fa-solid fa-envelope text-violet-500 w-5 text-center"></i> Send Email</a><a href="tel:${escapeHtml(lead.phone)}" class="w-full px-4 py-2.5 rounded-xl text-sm font-500 text-slate-600 hover:bg-slate-50 transition flex items-center gap-3"><i class="fa-solid fa-phone text-amber-500 w-5 text-center"></i> Call Lead</a></div></div></div></div></div>`;
+}
+
+// ========== Follow-ups Page ==========
+function renderFollowups() {
+  const allFollowups = Store.getFollowups(); const pending = allFollowups.filter(f => !f.completed).sort((a, b) => new Date(a.followupDate) - new Date(b.followupDate)); const completed = allFollowups.filter(f => f.completed).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); const overdue = pending.filter(f => new Date(f.followupDate) < new Date());
+  document.getElementById('content').innerHTML = `<div class="page-enter"><div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">${statCard('Pending', pending.length, 'fa-clock', 'bg-amber-500', 'Upcoming', 'follow-ups')}${statCard('Overdue', overdue.length, 'fa-exclamation-triangle', 'bg-red-500', 'Need attention', 'past due')}${statCard('Completed', completed.length, 'fa-check-circle', 'bg-brand-500', 'Done', 'follow-ups')}</div><div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6"><div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><h3 class="font-700 text-slate-800">Pending Follow-ups</h3><span class="text-xs text-slate-400">${pending.length} total</span></div>${pending.length === 0 ? `<div class="py-12 text-center text-slate-400 text-sm"><i class="fa-solid fa-check-double text-2xl mb-2 block text-brand-300"></i>All caught up! No pending follow-ups.</div>` : `<div class="divide-y divide-slate-50">${pending.map(f => { const lead = Store.getLead(f.leadId); const isOverdue = new Date(f.followupDate) < new Date(); return `<div class="px-6 py-4 hover:bg-slate-50 transition"><div class="flex items-start gap-4"><button onclick="toggleFollowupStatus('${f.id}')" class="mt-0.5 w-5 h-5 rounded-full border-2 ${isOverdue ? 'border-red-400' : 'border-slate-300 hover:border-brand-400'} shrink-0 transition" title="Mark complete"></button><div class="flex-1 min-w-0"><div class="flex items-center justify-between gap-2 mb-1"><span class="font-600 text-sm text-slate-800 cursor-pointer hover:text-brand-600 transition" onclick="navigate('lead/${f.leadId}')">${lead ? escapeHtml(lead.name) : 'Unknown Lead'}</span><span class="text-xs ${isOverdue ? 'text-red-500 font-600' : 'text-slate-400'}"><i class="fa-solid fa-calendar text-[10px] mr-1"></i>${formatDate(f.followupDate)}${isOverdue ? ' — Overdue' : ''}</span></div><p class="text-sm text-slate-500">${escapeHtml(f.note)}</p>${lead ? `<span class="text-xs text-slate-400 mt-1 inline-block">${escapeHtml(lead.company)} &middot; ${statusBadge(lead.status)}</span>` : ''}</div><button onclick="confirmDeleteFollowup('${f.id}')" class="text-slate-300 hover:text-red-500 transition shrink-0 mt-1"><i class="fa-solid fa-trash text-xs"></i></button></div></div>`; }).join('')}</div>`}</div>${completed.length > 0 ? `<div class="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><h3 class="font-700 text-slate-800">Completed</h3><span class="text-xs text-slate-400">${completed.length} total</span></div><div class="divide-y divide-slate-50">${completed.slice(0, 10).map(f => { const lead = Store.getLead(f.leadId); return `<div class="px-6 py-3 hover:bg-slate-50 transition opacity-60"><div class="flex items-start gap-4"><button onclick="toggleFollowupStatus('${f.id}')" class="mt-0.5 w-5 h-5 rounded-full bg-brand-500 border-2 border-brand-500 flex items-center justify-center shrink-0 transition" title="Mark incomplete"><i class="fa-solid fa-check text-white text-[10px]"></i></button><div class="flex-1 min-w-0"><p class="text-sm text-slate-600 line-through">${escapeHtml(f.note)}</p><span class="text-xs text-slate-400 mt-1 inline-block">${lead ? escapeHtml(lead.name) : 'Unknown'} &middot; Completed ${relativeTime(f.createdAt)}</span></div></div></div>`; }).join('')}</div></div>` : ''}</div>`;
+}
+
+// ========== Analytics Page ==========
+let analyticsCharts = [];
+function renderAnalytics() {
+  const leads = Store.getLeads(); const total = leads.length; const converted = leads.filter(l => l.status === 'Converted').length; const lost = leads.filter(l => l.status === 'Lost').length; const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0.0'; const lossRate = total > 0 ? ((lost / total) * 100).toFixed(1) : '0.0';
+  document.getElementById('content').innerHTML = `<div class="page-enter"><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"><div class="bg-white rounded-2xl border border-slate-200 p-5 text-center"><p class="text-sm text-slate-500 mb-1">Total Leads</p><p class="text-4xl font-800 text-slate-800">${total}</p></div><div class="bg-white rounded-2xl border border-slate-200 p-5 text-center"><p class="text-sm text-slate-500 mb-1">Conversion Rate</p><p class="text-4xl font-800 text-brand-600">${convRate}%</p></div><div class="bg-white rounded-2xl border border-slate-200 p-5 text-center"><p class="text-sm text-slate-500 mb-1">Loss Rate</p><p class="text-4xl font-800 text-red-500">${lossRate}%</p></div><div class="bg-white rounded-2xl border border-slate-200 p-5 text-center"><p class="text-sm text-slate-500 mb-1">Active Pipeline</p><p class="text-4xl font-800 text-violet-600">${leads.filter(l => ['New','Contacted','Qualified'].includes(l.status)).length}</p></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Leads by Status</h3><div class="h-72 flex items-center justify-center"><canvas id="analyticsStatusPie"></canvas></div></div><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Leads by Source</h3><div class="h-72 flex items-center justify-center"><canvas id="analyticsSourceBar"></canvas></div></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Monthly Lead Growth</h3><div class="h-72"><canvas id="analyticsMonthlyBar"></canvas></div></div><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Status Conversion Funnel</h3><div class="h-72"><canvas id="analyticsFunnel"></canvas></div></div></div><div class="bg-white rounded-2xl border border-slate-200 p-6"><h3 class="font-700 text-slate-800 mb-4">Status Breakdown</h3><div class="grid grid-cols-1 sm:grid-cols-5 gap-4">${STATUS_OPTIONS.map(s => { const count = leads.filter(l => l.status === s).length; const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'; return `<div class="text-center p-4 rounded-xl" style="background:${STATUS_COLORS[s].bg}"><div class="w-3 h-3 rounded-full mx-auto mb-2" style="background:${STATUS_COLORS[s].dot}"></div><p class="text-2xl font-800" style="color:${STATUS_COLORS[s].text}">${count}</p><p class="text-xs font-600 mt-1" style="color:${STATUS_COLORS[s].text}">${s}</p><p class="text-xs mt-0.5" style="color:${STATUS_COLORS[s].text};opacity:0.7">${pct}%</p></div>`; }).join('')}</div></div></div>`;
+  renderAnalyticsCharts(leads);
+}
+function renderAnalyticsCharts(leads) {
+  analyticsCharts.forEach(c => c.destroy()); analyticsCharts = [];
+  const statusCounts = {}; STATUS_OPTIONS.forEach(s => statusCounts[s] = 0); leads.forEach(l => { if (statusCounts[l.status] !== undefined) statusCounts[l.status]++; });
+  const sourceCounts = {}; SOURCE_OPTIONS.forEach(s => sourceCounts[s] = 0); leads.forEach(l => { if (sourceCounts[l.source] !== undefined) sourceCounts[l.source]++; });
+  const ctx1 = document.getElementById('analyticsStatusPie'); if (ctx1) { analyticsCharts.push(new Chart(ctx1, { type: 'doughnut', data: { labels: STATUS_OPTIONS, datasets: [{ data: STATUS_OPTIONS.map(s => statusCounts[s]), backgroundColor: STATUS_OPTIONS.map(s => STATUS_COLORS[s].dot), borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 12, family: 'Plus Jakarta Sans' } } } } } })); }
+  const ctx2 = document.getElementById('analyticsSourceBar'); if (ctx2) { analyticsCharts.push(new Chart(ctx2, { type: 'bar', data: { labels: SOURCE_OPTIONS, datasets: [{ label: 'Leads', data: SOURCE_OPTIONS.map(s => sourceCounts[s]), backgroundColor: CHART_COLORS.slice(0, SOURCE_OPTIONS.length), borderRadius: 8, borderSkipped: false, barThickness: 40 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { color: '#F1F5F9' } }, x: { ticks: { font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { display: false } } } } })); }
+  const monthlyData = {}; leads.forEach(l => { const d = new Date(l.createdAt); const key = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); monthlyData[key] = (monthlyData[key] || 0) + 1; });
+  const monthKeys = Object.keys(monthlyData).sort((a, b) => { const [am, ay] = a.split(' '); const [bm, by] = b.split(' '); return new Date(`01 ${am} 20${ay}`) - new Date(`01 ${bm} 20${by}`); });
+  const ctx3 = document.getElementById('analyticsMonthlyBar'); if (ctx3) { analyticsCharts.push(new Chart(ctx3, { type: 'bar', data: { labels: monthKeys.length ? monthKeys : ['No Data'], datasets: [{ label: 'New Leads', data: monthKeys.length ? monthKeys.map(k => monthlyData[k]) : [0], backgroundColor: '#10B981', borderRadius: 8, borderSkipped: false, barThickness: 32 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { color: '#F1F5F9' } }, x: { ticks: { font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { display: false } } } } })); }
+  const funnelOrder = ['New', 'Contacted', 'Qualified', 'Converted'];
+  const ctx4 = document.getElementById('analyticsFunnel'); if (ctx4) { analyticsCharts.push(new Chart(ctx4, { type: 'bar', data: { labels: funnelOrder, datasets: [{ label: 'Leads', data: funnelOrder.map(s => statusCounts[s]), backgroundColor: funnelOrder.map(s => STATUS_COLORS[s].dot), borderRadius: 6, borderSkipped: false }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11, family: 'Plus Jakarta Sans' } }, grid: { color: '#F1F5F9' } }, y: { ticks: { font: { size: 12, family: 'Plus Jakarta Sans', weight: '600' } }, grid: { display: false } } } } })); }
+}
+
+// ============================================
+// Modals: Add/Edit Lead
+// ============================================
+function showAddLeadModal() {
+  showModal(`<div class="p-6"><div class="flex items-center justify-between mb-6"><h3 class="text-lg font-700 text-slate-800">Add New Lead</h3><button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark text-lg"></i></button></div><form id="leadForm" class="space-y-4" onsubmit="handleLeadSubmit(event)"><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-sm font-600 text-slate-700 mb-1">Full Name <span class="text-red-400">*</span></label><input type="text" name="name" required placeholder="John Doe" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Email <span class="text-red-400">*</span></label><input type="email" name="email" required placeholder="john@company.com" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Phone</label><input type="text" name="phone" placeholder="+91 98765 43210" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Company</label><input type="text" name="company" placeholder="Acme Inc." class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Lead Source</label><select name="source" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition">${SOURCE_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join('')}</select></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Status</label><select name="status" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition">${STATUS_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join('')}</select></div></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Notes</label><textarea name="notes" rows="3" placeholder="Add any relevant notes about this lead..." class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition resize-none"></textarea></div><div class="flex justify-end gap-3 pt-2"><button type="button" onclick="closeModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-600 text-slate-600 hover:bg-slate-50 transition">Cancel</button><button type="submit" class="btn-primary px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-600 transition">Add Lead</button></div></form></div>`);
+}
+function showEditLeadModal(id) {
+  const lead = Store.getLead(id); if (!lead) return;
+  showModal(`<div class="p-6"><div class="flex items-center justify-between mb-6"><h3 class="text-lg font-700 text-slate-800">Edit Lead</h3><button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark text-lg"></i></button></div><form id="leadForm" class="space-y-4" onsubmit="handleLeadSubmit(event, '${id}')"><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-sm font-600 text-slate-700 mb-1">Full Name <span class="text-red-400">*</span></label><input type="text" name="name" required value="${escapeHtml(lead.name)}" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Email <span class="text-red-400">*</span></label><input type="email" name="email" required value="${escapeHtml(lead.email)}" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Phone</label><input type="text" name="phone" value="${escapeHtml(lead.phone)}" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Company</label><input type="text" name="company" value="${escapeHtml(lead.company)}" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Lead Source</label><select name="source" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition">${SOURCE_OPTIONS.map(s => `<option value="${s}" ${lead.source === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Status</label><select name="status" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition">${STATUS_OPTIONS.map(s => `<option value="${s}" ${lead.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Notes</label><textarea name="notes" rows="3" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition resize-none">${escapeHtml(lead.notes)}</textarea></div><div class="flex justify-end gap-3 pt-2"><button type="button" onclick="closeModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-600 text-slate-600 hover:bg-slate-50 transition">Cancel</button><button type="submit" class="btn-primary px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-600 transition">Save Changes</button></div></form></div>`);
+}
+function handleLeadSubmit(e, editId) {
+  e.preventDefault(); const form = e.target; const data = { name: form.name.value.trim(), email: form.email.value.trim(), phone: form.phone.value.trim(), company: form.company.value.trim(), source: form.source.value, status: form.status.value, notes: form.notes.value.trim() };
+  if (!data.name || !data.email) { showToast('Please fill in all required fields.', 'error'); return; }
+  if (editId) { Store.updateLead(editId, data); showToast('Lead updated successfully!', 'success'); } else { Store.addLead(data); showToast('New lead added successfully!', 'success'); }
+  closeModal(); renderPage();
+}
+
+// ============================================
+// Modal: Add Follow-up
+// ============================================
+function showAddFollowupModal(leadId) {
+  const lead = Store.getLead(leadId); if (!lead) return; const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const defaultDate = tomorrow.toISOString().split('T')[0];
+  showModal(`<div class="p-6"><div class="flex items-center justify-between mb-6"><h3 class="text-lg font-700 text-slate-800">Schedule Follow-up</h3><button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark text-lg"></i></button></div><div class="mb-4 p-3 bg-slate-50 rounded-xl flex items-center gap-3"><div class="w-8 h-8 bg-brand-100 rounded-lg flex items-center justify-center text-brand-600 font-700 text-sm">${lead.name.charAt(0)}</div><div><p class="text-sm font-600 text-slate-800">${escapeHtml(lead.name)}</p><p class="text-xs text-slate-400">${escapeHtml(lead.company)}</p></div></div><form id="followupForm" class="space-y-4" onsubmit="handleFollowupSubmit(event, '${leadId}')"><div><label class="block text-sm font-600 text-slate-700 mb-1">Follow-up Date <span class="text-red-400">*</span></label><input type="date" name="followupDate" required value="${defaultDate}" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition"></div><div><label class="block text-sm font-600 text-slate-700 mb-1">Notes <span class="text-red-400">*</span></label><textarea name="note" rows="3" required placeholder="Describe the follow-up plan..." class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm transition resize-none"></textarea></div><div class="flex justify-end gap-3 pt-2"><button type="button" onclick="closeModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-600 text-slate-600 hover:bg-slate-50 transition">Cancel</button><button type="submit" class="btn-primary px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-600 transition">Schedule</button></div></form></div>`);
+}
+function handleFollowupSubmit(e, leadId) {
+  e.preventDefault(); const form = e.target; const data = { leadId: leadId, note: form.note.value.trim(), followupDate: new Date(form.followupDate.value + 'T09:00:00Z').toISOString() };
+  if (!data.note || !form.followupDate.value) { showToast('Please fill in all required fields.', 'error'); return; }
+  Store.addFollowup(data); showToast('Follow-up scheduled successfully!', 'success'); closeModal(); renderPage();
+}
+
+// ============================================
+// Action Functions
+// ============================================
+function updateLeadStatus(id, status) { Store.updateLead(id, { status }); showToast(`Status updated to ${status}`, 'success'); renderPage(); }
+function toggleFollowupStatus(id) { const f = Store.toggleFollowup(id); if (f) { showToast(f.completed ? 'Follow-up marked as completed' : 'Follow-up marked as pending', 'success'); renderPage(); } }
+function confirmDeleteLead(id) { const lead = Store.getLead(id); if (!lead) return; showConfirm('Delete Lead', `Are you sure you want to delete "${lead.name}"? All associated follow-ups will also be removed.`, () => { Store.deleteLead(id); showToast('Lead deleted successfully', 'success'); if (currentPage === 'lead') navigate('leads'); else renderPage(); }); }
+function confirmDeleteFollowup(id) { showConfirm('Delete Follow-up', 'Are you sure you want to remove this follow-up?', () => { Store.deleteFollowup(id); showToast('Follow-up deleted', 'success'); renderPage(); }); }
+function handleLogout() { Auth.logout(); showAppShell(false); showToast('Logged out successfully', 'info'); }
+
+// ============================================
+// Auth & Login Flow
+// ============================================
+function showAppShell(show) { document.getElementById('loginScreen').classList.toggle('hidden', show); document.getElementById('appShell').classList.toggle('hidden', !show); }
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+  e.preventDefault(); const email = document.getElementById('loginEmail').value.trim(); const password = document.getElementById('loginPassword').value; const errorEl = document.getElementById('loginError');
+  if (!email || !password) { errorEl.textContent = 'Please enter both email and password.'; errorEl.classList.remove('hidden'); return; }
+  const result = Auth.login(email, password);
+  if (result.ok) { errorEl.classList.add('hidden'); showAppShell(true); initApp(); showToast(`Welcome back, ${result.user.name}!`, 'success'); } else { errorEl.textContent = result.error; errorEl.classList.remove('hidden'); }
+});
+
+// ============================================
+// App Initialization
+// ============================================
+function initApp() {
+  const user = Auth.getUser();
+  if (user) { document.getElementById('userName').textContent = user.name; document.getElementById('userEmail').textContent = user.email; document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase(); }
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  if (!window.location.hash) window.location.hash = 'dashboard'; parseRoute();
+}
+
+Store.init();
+if (Auth.isLoggedIn()) { showAppShell(true); initApp(); } else { showAppShell(false); }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeConfirm(); } });
+document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('confirmOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeConfirm(); });
+</script>
+</body>
+</html>
